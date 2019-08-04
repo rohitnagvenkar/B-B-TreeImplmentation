@@ -1,294 +1,395 @@
+//If you have problem understanding this,Refer CLRS a.k.a. "Introduction to algorithms" (chapter-BTREE) to understand the pseudocode for Insertion & diff. cases of Deletion.
+
 #include<iostream>
+#include<stdlib.h>
+#define t 2                                    //It's a order 2 BTREE, if want 3, just write 3 inplace of 2 like:-  #defint t 3 . Similary for other order,only update this line
 using namespace std;
 
-// A BTree node.
-// We call the values to insert as keys.
-// We call the container size that holds these values as degrees.
+typedef struct arr1{
+	int key;
+	struct arr2* child;
+}node;
 
-//this class is the framework for the BTree.
-//framework can be thought of as a structure for your program, act like rules your program will follow.
-class BTreeNode
-{
-	int *keys; // An array of keys
-	int t;	 // Minimum degree (defines the range for number of keys)
-	BTreeNode **C; // An array of child pointers
-	int n;	 // Current number of keys
-	bool leaf; // Is true when node is leaf. Otherwise false
-public:
-    //out here you are just declaring a constructor
-	BTreeNode(int _degree, bool _leaf); // Constructor
-    //
-	// A utility function to insert a new key in the subtree rooted with
-	// this node. The assumption is, the node must be non-full when this
-	// function is called
-	void insertNonFull(int k);
+typedef struct arr2{
+	int n;
+	bool leaf;
+	struct arr1* arr;
+}btree;
 
-	// A utility function to split the child y of this node. i is index of y in
-	// child array C[]. The Child y must be full when this function is called
-	void splitChild(int i, BTreeNode *y);
+typedef struct arr3{
+	int index;
+	struct arr2* spy;
+}bond;
 
-	// A function to traverse all nodes in a subtree rooted with this node
-	void traverse();
-
-	// A function to search a key in the subtree rooted with this node.
-	BTreeNode *search(int k); // returns NULL if k is not present.
-
-// Make BTree friend of this so that we can access private members of this
-// class in BTree functions
-friend class BTree;
-};
-
-//this class is the initializer, meaning the values are assigned to elements.
-class BTree
-{
-	BTreeNode *root; // Pointer to root node, aka your first entry is created.
-	int degree; // Minimum degree, how far will the box container expand before it splits.
-public:
-	// Constructor (Initializes tree as empty), will execute instantly once BTree is called.
-	BTree(int _degree){
-        root = NULL; // you haven't added any value to the tree yet so NULL.
-        degree = _degree; //a box container of eg:3 gets created.
-    }
-
-    // The main function that inserts a new key(value say 10, 20..) in this B-Tree
-	void insert(int kvalue);
-
-	// function to traverse the tree, look for a certain value
-	void traverse(){
-	    if (root != NULL){
-            root->traverse();
-	    }
-    }
-
-	// function to search a key(value) in this tree
-	BTreeNode* search(int kvalue){
-	    //if root equals NULL, return NULL else return search value.
-	    return (root == NULL)? NULL : root->search(kvalue);
-    }
+void fix_case3(bond* &x,btree* &root);          //These functions will be used mainly for delete operatoin from BTREE.
+void fix_case2(bond* &x,btree* &root);
+void fix_case1(bond* &x);
+bond* find_max(btree* &x);
+bond* find_min(btree* &x);
+void delete_key(btree* &root,int k);            //This will be the main delete function,which will use all these functions.
+void merge(btree* &x , int i);
+bond* search(btree* &x,int k);
+bond* temp_search(btree* &x,int k,bond* &temp);
 
 
-};
+void split_child(btree* &x,int i){
+	btree* z=new btree;
+	z->arr=new node[2*t];
+	btree* y=new btree;
+	y->arr=new node[2*t];
 
-// Constructor for BTreeNode class
-BTreeNode::BTreeNode(int _degree, bool _leaf)
-{
-	// Copy the given minimum degree and leaf property
-	t = _degree;
-	leaf = _leaf;
+	y=x->arr[i].child;
+	z->leaf=y->leaf;
+	z->n=t-1;
 
-	// Allocate memory for maximum number of possible keys
-	// and child pointers
-	keys = new int[2*t-1];
-	C = new BTreeNode *[2*t];
-
-	// Initialize the number of keys as 0
-	n = 0;
+	for(int j=0;j<(t-1);j++)
+	     z->arr[j].key=y->arr[j+t].key;
+	if(!y->leaf){
+		for(int j=0;j<t;j++)
+		    z->arr[j].child=y->arr[j+t].child;
+	}
+	y->n=t-1;
+	for(int j=(x->n + 1);j>=(i+1);j--)
+	      x->arr[j+1].child=x->arr[j].child;
+	x->arr[i+1].child=z;
+	for(int j=x->n;j>=i;j--)
+	     x->arr[j+1].key=x->arr[j].key;
+	x->arr[i].key=y->arr[t-1].key;
+	x->n=x->n + 1;
 }
 
-// Function to traverse all nodes in a subtree rooted with this node
-void BTreeNode::traverse()
-{
-	// There are n keys and n+1 children, travers through n keys
-	// and first n children
-	int i = 0;
-	if(i < n-1){
-        cout << "\n|";
-	}
-	for (i = 0; i < n; i++)
-	{
-		// If this is not leaf, then before printing key[i],
-		// traverse the subtree rooted with child C[i].
-		if (leaf == false){
-            cout << "\n| " << keys[i] << " |" << endl;
-			C[i]->traverse();
+void insert_nonfull(btree* &x,int k){
+	int i=x->n;
+	if(x->leaf){
+		while(i>=1 && k<x->arr[i-1].key){
+			x->arr[i].key=x->arr[i-1].key;
+			i=i-1;
 		}
-		cout << " " << keys[i];
+		x->arr[i].key=k;
+		x->n=x->n +1;
 	}
-	cout << "|\n";
-
-	// Print the subtree rooted with last child
-	if (leaf == false){
-        cout << "|" << endl;
-        C[i]->traverse();
-        cout << "|" << endl;
+	else{
+		while(i>=1 && k<x->arr[i-1].key)
+		     i=i-1;
+		i=i+1;
+		if(x->arr[i-1].child->n==(2*t -1)){
+			split_child(x,i-1);
+			if(k>x->arr[i-1].key)
+			    i=i+1;
+		}
+		insert_nonfull(x->arr[i-1].child,k);
 	}
 }
 
-// Function to search key k in subtree rooted with this node
-BTreeNode *BTreeNode::search(int k)
-{
-	// Find the first key greater than or equal to k
-	int i = 0;
-	while (i < n && k > keys[i])
-		i++;
+void insert(btree* &root,int k){
+	btree* r=new btree;
+	r=root;
+	if(r->n==(2*t -1)){
 
-	// If the found key is equal to k, return this node
-	if (keys[i] == k)
-		return this;
+		btree* s=new btree;
+		s->arr=new node[2*t];
+		s->leaf=false;
+		s->n=0;
+		s->arr[0].child=r;
 
-	// If key is not found here and this is a leaf node
-	if (leaf == true)
+		root=s;
+		split_child(s,0);
+		insert_nonfull(s,k);
+	}
+	else
+	  insert_nonfull(r,k);
+}
+
+void traverse(btree* &x){
+	for(int i=0;i<=x->n;i++){
+        //cout << "\n|" << x->arr[i].key << "|" << endl;
+		if(x->leaf==false){
+            cout << endl;
+			traverse(x->arr[i].child);
+            cout << endl;
+			if(i < x->n){
+               //cout << endl;
+			   cout<<x->arr[i].key<<"  ";
+			}
+		}
+		else{
+            //cout << "\n|" << x->arr[i].key << "|" << endl;
+            //cout << endl;
+			if(i < x->n){
+               cout << endl;
+		       cout<<x->arr[i].key<<"  ";
+			}
+		}
+	}
+}
+
+bond* search(btree* &x,int k){                                       //for finding the node containg key
+	int i=0;
+	while(i<x->n && k>x->arr[i].key)
+	       i=i+1;
+	if(i<x->n && k==x->arr[i].key){
+		bond* temp=new bond;
+		temp->spy=x;
+		temp->index=i;
+	   return temp;
+	}
+	else if(x->leaf==true)
 		return NULL;
-
-	// Go to the appropriate child
-	return C[i]->search(k);
+	else
+	   return search(x->arr[i].child,k);
 }
 
-// The main function that inserts a new key(value) in this B-Tree
-// :: is the scope resolution, meaning insert belongs to the class BTree
-void BTree::insert(int kvalue)
-{
-	// If tree is empty
-	if (root == NULL)
-	{
-		// Allocate memory for root
-		root = new BTreeNode(degree, true);
-		root->keys[0] = kvalue; // Insert key
-		root->n = 1; // Update number of keys in root, aka number of values in the box.
-	}
-	else // If tree is not empty
-	{
-		// If root is full, then tree grows in height
-		if (root->n == 2*degree-1)
-		{
-			// Allocate memory for new root
-			BTreeNode *s = new BTreeNode(degree, false);
-
-			// Make old root as child of new root
-			s->C[0] = root;
-
-			// Split the old root and move 1 key to the new root
-			s->splitChild(0, root);
-
-			// New root has two children now. Decide which of the
-			// two children is going to have new key
-			int i = 0;
-			if (s->keys[0] < kvalue)
-				i++;
-			s->C[i]->insertNonFull(kvalue);
-
-			// Change root
-			root = s;
-		}
-		else // If root is not full, call insertNonFull for root
-			root->insertNonFull(kvalue);
+bond* temp_search(btree* &x,int k,bond* &temp){                    //for finding the parent node of a node containg key
+	int i=0;
+	bond* temp2=new bond;
+	temp2=temp;
+	while(i<x->n && k>x->arr[i].key)
+	       i=i+1;
+	if(i<x->n && k==x->arr[i].key)
+		return temp2;
+	else if(x->leaf==true)
+		return NULL;
+	else{
+		temp2->spy=x;
+		temp2->index=i;
+		return temp_search(temp2->spy->arr[temp2->index].child,k,temp2);
 	}
 }
 
-// A utility function to insert a new key in this node
-// The assumption is, the node must be non-full when this
-// function is called
-//process is you have the value and then you check to see if its a leaf node or not,
-//then you check if the value is greater or less, if greater then push all the elements to the side and make space for the value.
-//if it is not a leaf node then it will go down using recursion and check again if leaf node.
-void BTreeNode::insertNonFull(int kvalue)
-{
-	// Initialize index as index of rightmost element
-	int i = n-1;
-
-	// If this is a leaf node
-	if (leaf == true)
-	{
-		// The following loop does two things
-		// a) Finds the location of new key to be inserted
-		// b) Moves all greater keys to one place ahead
-		while (i >= 0 && keys[i] > kvalue)
-		{
-			keys[i+1] = keys[i];
-			i--;
-		}
-
-		// Insert the new key at found location
-		keys[i+1] = kvalue;
-		n = n+1;
-	}
-	else // If this node is not leaf
-	{
-		// Find the child which is going to have the new key
-		while (i >= 0 && keys[i] > kvalue)
-			i--;
-
-		// See if the found child is full
-		if (C[i+1]->n == 2*t-1)
-		{
-			// If the child is full, then split it
-			splitChild(i+1, C[i+1]);
-
-			// After split, the middle key of C[i] goes up and
-			// C[i] is splitted into two. See which of the two
-			// is going to have the new key
-			if (keys[i+1] < kvalue)
-				i++;
-		}
-		C[i+1]->insertNonFull(kvalue);
+bond* find_min(btree* &x){
+	if(x->leaf==false)
+	   return find_min(x->arr[0].child);
+	else{
+		bond* temp=new bond;
+		temp->index=0;
+		temp->spy=x;
+		return temp;
 	}
 }
 
-// A utility function to split the child y of this node
-// Note that y must be full when this function is called
-void BTreeNode::splitChild(int i, BTreeNode *y)
-{
-	// Create a new node which is going to store (t-1) keys
-	// of y
-	BTreeNode *z = new BTreeNode(y->t, y->leaf);
-	z->n = t - 1;
-
-	// Copy the last (t-1) keys of y to z
-	for (int j = 0; j < t-1; j++)
-		z->keys[j] = y->keys[j+t];
-
-	// Copy the last t children of y to z
-	if (y->leaf == false)
-	{
-		for (int j = 0; j < t; j++)
-			z->C[j] = y->C[j+t];
+bond* find_max(btree* &x){
+	if(x->leaf==false)
+	    return find_max(x->arr[x->n].child);
+	else{
+		bond* temp=new bond;
+		temp->index=x->n -1;
+		temp->spy=x;
+	    return temp;
 	}
-
-	// Reduce the number of keys in y
-	y->n = t - 1;
-
-	// Since this node is going to have a new child,
-	// create space of new child
-	for (int j = n; j >= i+1; j--)
-		C[j+1] = C[j];
-
-	// Link the new child to this node
-	C[i+1] = z;
-
-	// A key of y will move to this node. Find the location of
-	// new key and move all greater keys one space ahead
-	for (int j = n-1; j >= i; j--)
-		keys[j+1] = keys[j];
-
-	// Copy the middle key of y to this node
-	keys[i] = y->keys[t-1];
-
-	// Increment count of keys in this node
-	n = n + 1;
 }
 
-// Driver program to test above functions
-int main()
-{
-	BTree t(3); // A B-Tree with minium degree 3
-	t.insert(10);
-	t.insert(20);
-	t.insert(5);
-	t.insert(6);
-	t.insert(12);
-	t.insert(30);
-	t.insert(7);
-	t.insert(17);
-	t.insert(15);
+void merge(btree* &x , int i){                                                          //Assumes that node x->n >=t
 
-	cout << "Traversal of the constucted tree is ";
-	t.traverse();
+	btree* y=new btree;
+	y->arr=new node[2*t];
+	btree* z=new btree;
+	z->arr=new node[2*t];
 
-	int k = 6;
-	(t.search(k) != NULL)? cout << "\nPresent" : cout << "\nNot Present";
+	y = x->arr[i].child;
+	z = x->arr[i+1].child;
 
-	k = 15;
-	(t.search(k) != NULL)? cout << "\nPresent" : cout << "\nNot Present";
+	for(int j=0;j<z->n;j++)
+	   y->arr[j+t].key=z->arr[j].key;
+	for(int j=0;j<t;j++)
+	   y->arr[j+t].child=z->arr[j].child;
 
-	return 0;
+	y->n = (2*t -1);
+	y->arr[t-1].key = x->arr[i].key;
+
+	for(int j=i;j<x->n -1;j++)
+	    x->arr[j].key=x->arr[j+1].key;
+	for(int j=i+1;j<x->n;j++)
+	    x->arr[j].child=x->arr[j+1].child;
+
+	x->n = x->n -1;
 }
+
+void fix_case3(bond* &x,btree* &root){                                                    //it means m->n <= t-1.     This function assumed that x->spy->leaf ==false or a!=NULL
+
+		    	   bond* a=new bond;
+		    	   a=temp_search(root,x->spy->arr[x->index].key,a);
+
+		    if(a->spy->n >= t || a->spy==root){
+
+		        if(a->index!=a->spy->n && a->spy->arr[a->index +1].child->n >= t){         //case 3a -right sibling
+		    		btree* b=new btree;
+			        b=a->spy->arr[a->index +1].child;
+
+			        x->spy->n = x->spy->n +1;                                              //increment size(n) of node which have key k
+			        x->spy->arr[x->spy->n -1].key=a->spy->arr[a->index].key;               //insert parent's key to child node of (t-1) size having key k
+			        a->spy->arr[a->index].key=b->arr[0].key;                               //copy sibling's key to parent node
+			        if(!b->leaf)
+				       x->spy->arr[x->spy->n].child=b->arr[0].child;                          // child pointer of right sibling will transfer to last node having key k
+
+			    	for(int j=0;j < b->n -1;j++)
+				        b->arr[j].key=b->arr[j+1].key;
+				    if(!b->leaf)
+				       for(int j=0;j < b->n;j++)
+				           b->arr[j].child=b->arr[j+1].child;
+
+				    b->n = b->n -1;
+				}
+				else if(a->index!=0 && a->spy->arr[a->index -1].child->n >=t){        //case 3a -left sibling
+					btree* b=new btree;
+			        b=a->spy->arr[a->index -1].child;
+
+		            x->spy->n = x->spy->n +1;                                         //increment size(n) of node which have key k
+
+			        for(int j = x->spy->n -1;j>0;j--)
+			             x->spy->arr[j].key=x->spy->arr[j-1].key;
+			        for(int j=x->spy->n;j>0;j--)
+					     x->spy->arr[j].child=x->spy->arr[j-1].child;
+
+			        x->spy->arr[0].key=a->spy->arr[a->index -1].key;                  //insert parent's key to child node of (t-1) size having key k
+			        a->spy->arr[a->index -1].key=b->arr[b->n -1].key;                 //copy sibling's key to parent node
+				    x->spy->arr[0].child=b->arr[b->n].child;                          // child pointer of left sibling will transfer to last node having key k
+
+				    b->n = b->n -1;
+				}
+
+				else if(a->spy==root && a->spy->n ==1 && a->spy->arr[0].child->n ==t-1 && a->spy->arr[1].child->n ==t-1){
+
+					if(a->index < a->spy->n){
+						merge(a->spy,a->index);
+						root=a->spy->arr[a->index].child;
+					}
+					else if(a->index == a->spy->n){
+						a->index = a->index -1;
+						merge(a->spy,a->index);
+						root=a->spy->arr[a->index].child;
+					}
+			    }
+
+				else{                                                                 //case 3b -both siblings have t-1 keys only
+					if(a->index==a->spy->n)                                           //delete key is in the right most node
+						merge(a->spy,a->index -1);
+					else                                                              //both siblings have t-1 keys
+						merge(a->spy,a->index);
+				}
+		     }
+
+		     else if(a->spy->n <= t-1 && a->spy!=root){
+
+	            	if(a->index < a->spy->n)
+	                    fix_case3(a,root);
+
+	                else if(a->index == a->spy->n){
+	                	a->index = a->index -1;
+	                	fix_case3(a,root);
+					}
+			 }
+}
+
+void fix_case2(bond* &x ,btree* &root){                                               //Assumes that (x->spy->n >=t && x->spy->leaf==false)  or  (x->spy==root && x->spy->leaf==false)
+
+          btree* var=new btree;
+
+		  if(x->spy->arr[x->index].child->n >=t){                                      //case 2a
+			    var=x->spy->arr[x->index].child;
+			    bond* jarvis=new bond;
+			    jarvis=find_max(var);
+
+			    if(jarvis->spy->n <= t-1)
+			       fix_case3(jarvis,root);
+			    jarvis=find_max(var);
+
+			    x->spy->arr[x->index].key = jarvis->spy->arr[jarvis->index].key;
+				fix_case1(jarvis);
+		     }
+		  else if(x->spy->arr[x->index +1].child->n >=t){                               //case 2b
+			    var=x->spy->arr[x->index +1].child;
+			    bond* jarvis=new bond;
+			    jarvis=find_min(var);
+
+			    if(jarvis->spy->n <= t-1)
+			       fix_case3(jarvis,root);
+			    jarvis=find_min(var);
+
+			    x->spy->arr[x->index].key = jarvis->spy->arr[jarvis->index].key;
+				fix_case1(jarvis);
+		     }
+		  else{		  	                                                                //case 2c
+		  	    merge(x->spy,x->index);
+		  }
+}
+
+void fix_case1(bond* &x){                                                               //Assumes  x->spy->leaf==true && x->spy->n > t-1
+
+	int temp=x->index;
+	for(int i=temp;i<x->spy->n -1;i++)
+		x->spy->arr[i].key = x->spy->arr[i+1].key;
+	x->spy->n = x->spy->n -1;
+}
+
+void delete_key(btree* &root,int k){
+
+    btree* r=new btree;
+    r=root;
+	bond* x=new bond;
+	x=search(r,k);
+
+ if(x!=NULL){
+
+	if(x->spy->leaf==true && x->spy->n >= t)
+	       fix_case1(x);
+
+	else{
+		  if(x->spy->n <= t-1 && x->spy!=root)
+                fix_case3(x,r);
+
+	      else if(x->spy->n >=t || x->spy==root)
+			    fix_case2(x,r);
+
+		  delete_key(root,k);
+	   }
+    }
+}
+
+int main(){
+	btree* root=new btree;
+
+	root->leaf=true;
+	root->n=0;
+	root->arr=new node[2*t];
+
+//   for(int i=13;i>2;i--)                 //Figure(1)
+//       insert(root,i);
+
+    for(int i=1;i<=15;i++)             //Figure(2)
+	   insert(root,i);
+
+	cout<<"\nBefore deletion\n";
+	traverse(root);
+	cout<<"\n";
+
+	delete_key(root,8);
+
+    cout<<"\nAfter deletion\n";
+	traverse(root);
+}
+
+/*
+     Illustration for (1):- (t=2)
+ ----------------------------------
+
+             10  ,  _
+            /        \
+        6 , 8 , _     12 , _
+       /    |   \     |    \
+    3,4,5,_ 7,_  9,_  11,_  13,_
+
+                                              (a) where  _ have a undefined key but a defined child pointer in both cases.
+                                              (b) each node can have maximum of (2*t) child pointers and (2*t -1) keys.
+                                              (c) each node can have minimum of  t child poniters and t-1 keys.
+
+    Illustration for (2):- (t=2)
+ --------------------------------
+
+               4   ,   8   ,   _
+			  /        |       \
+			 2 , _     6 , _    10 , 12 , _
+			/    \     |   \     |   |     \
+		   1,_    3,_  5,_  7,_  9,_ 11,_  13,14,15,_
+
+
+*/
